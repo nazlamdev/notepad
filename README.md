@@ -120,6 +120,26 @@ npx supabase db push
 
 **Verifica**: Dashboard → **Table Editor** → `notes` deve comparire con l'etichetta *RLS enabled*; in **Database → Publications → supabase_realtime** la tabella `notes` deve risultare attiva. Se non lo è, attivala lì (la migration lo fa in automatico quando la publication esiste).
 
+### 2b. Accesso su approvazione (tab Root)
+
+Applica anche `supabase/migrations/20261004090000_access_approval.sql` (stesso procedimento: SQL Editor → incolla → Run, oppure `npx supabase db push`).
+
+Come funziona:
+
+- Chiunque può registrarsi (o usare il magic link), ma questo crea solo una **richiesta di accesso** in stato *in attesa*.
+- Finché la richiesta non è approvata, le policy RLS impediscono a quell'account di leggere o scrivere note: l'utente vede la schermata "Richiesta in attesa di approvazione", che si aggiorna da sola appena viene approvato.
+- L'amministratore è definito nel database, nella tabella `public.app_admins` (preimpostata con `nazzareno.lamanna@gmail.com`). Per essere riconosciuto come admin l'account deve avere l'email **confermata**.
+- L'admin vede il tab **Root** (con il numero di richieste in attesa) nella barra delle schede, l'icona a scudo in basso nell'elenco note e il comando "Root" nella palette. Da lì può **Approvare**, **Rifiutare** o **Revocare** l'accesso. Revocare non cancella le note: tornano visibili se l'utente viene riapprovato.
+- Le decisioni passano dalla funzione `set_access_status()`, che verifica lato database che chi la chiama sia admin; il client non può modificare la tabella `access_requests` direttamente.
+
+Per aggiungere un altro amministratore (SQL Editor):
+
+```sql
+insert into public.app_admins (email) values ('altra.email@esempio.it');
+```
+
+> Tieni attiva l'opzione **Confirm email** in Supabase Auth: impedisce che qualcuno si registri con l'email dell'amministratore senza possederla.
+
 ## 3. Configurare Auth
 
 Dashboard → **Authentication**:
@@ -177,3 +197,4 @@ L'app è su `http://localhost:5173/`. Senza `.env` valido mostra una schermata c
 - `version`, `created_at`, `updated_at` sono gestiti esclusivamente dai trigger.
 - Gli eventi Realtime rispettano RLS; gli eventi DELETE contengono solo l'id della riga.
 - Nessuna condivisione pubblica: ogni nota è visibile solo al proprietario.
+- Solo gli account approvati dall'amministratore possono accedere alle note (vedi 2b). Le registrazioni restano aperte perché servono a inviare la richiesta.

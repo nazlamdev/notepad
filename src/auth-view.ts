@@ -1,6 +1,6 @@
 import type { AuthError, SupabaseClient } from '@supabase/supabase-js';
 import { appRedirectUrl } from './config';
-import { h } from './dom';
+import { h, icon } from './dom';
 
 type Mode = 'signin' | 'signup' | 'magic' | 'reset';
 
@@ -72,7 +72,7 @@ export function renderAuth(root: HTMLElement, sb: SupabaseClient, initialError: 
       placeholder: 'Password',
     });
     const needsPassword = mode === 'signin' || mode === 'signup';
-    const submitLabel = { signin: 'Accedi', signup: 'Crea account', magic: 'Inviami il link', reset: 'Invia email di recupero' }[mode];
+    const submitLabel = { signin: 'Accedi', signup: 'Invia richiesta', magic: 'Inviami il link', reset: 'Invia email di recupero' }[mode];
     const submit = h('button', { type: 'submit', class: 'btn primary block' }, submitLabel);
 
     const form = h(
@@ -101,7 +101,7 @@ export function renderAuth(root: HTMLElement, sb: SupabaseClient, initialError: 
         if (mode === 'signup') {
           const { data, error } = await sb.auth.signUp({ email: addr, password: password.value, options: { emailRedirectTo: redirect } });
           if (error) throw error;
-          if (!data.session) draw({ kind: 'ok', text: `Ti abbiamo inviato un’email a ${addr}: apri il link per confermare l’account.` });
+          if (!data.session) draw({ kind: 'ok', text: `Ti abbiamo inviato un’email a ${addr}: apri il link per confermarla. Poi l’amministratore dovrà approvare la richiesta.` });
           return;
         }
         if (mode === 'magic') {
@@ -127,15 +127,16 @@ export function renderAuth(root: HTMLElement, sb: SupabaseClient, initialError: 
 
     const titles: Record<Mode, string> = {
       signin: 'Accedi',
-      signup: 'Crea un account',
+      signup: 'Richiedi un account',
       magic: 'Accedi con un link via email',
       reset: 'Recupera la password',
     };
 
     card.replaceChildren(
       brand(),
-      h('div', { class: 'segmented', role: 'group', 'aria-label': 'Metodo di accesso' }, seg('signin', 'Password'), seg('magic', 'Link email'), seg('signup', 'Registrati')),
+      h('div', { class: 'segmented', role: 'group', 'aria-label': 'Metodo di accesso' }, seg('signin', 'Password'), seg('magic', 'Link email'), seg('signup', 'Richiedi accesso')),
       h('h2', null, titles[mode]),
+      ...(mode === 'signup' ? [h('p', { class: 'muted small auth-hint' }, 'Quaderno è su invito: dopo la registrazione la richiesta deve essere approvata dall’amministratore prima di poter usare le note.')] : []),
       form,
       h(
         'div',
@@ -185,4 +186,42 @@ export function renderPasswordRecovery(root: HTMLElement, sb: SupabaseClient, do
     h('main', { class: 'auth-screen' }, h('div', { class: 'auth-card' }, brand(), h('h2', null, 'Imposta una nuova password'), form)),
   );
   pw.focus();
+}
+
+export function renderAccessGate(
+  root: HTMLElement,
+  opts: { status: 'pending' | 'rejected' | 'error'; email: string; message?: string; onRetry: () => void; onSignOut: () => void },
+): void {
+  const content = {
+    pending: {
+      title: 'Richiesta in attesa di approvazione',
+      text: `Il tuo account (${opts.email}) è stato creato. L’amministratore deve approvarlo prima che tu possa usare Quaderno. Questa pagina si aggiornerà da sola appena la richiesta viene approvata.`,
+    },
+    rejected: {
+      title: 'Accesso non autorizzato',
+      text: `L’account ${opts.email} non è stato autorizzato a usare Quaderno. Se pensi sia un errore, contatta l’amministratore.`,
+    },
+    error: { title: 'Impossibile verificare l’accesso', text: opts.message ?? 'Si è verificato un errore.' },
+  }[opts.status];
+
+  root.replaceChildren(
+    h(
+      'main',
+      { class: 'auth-screen' },
+      h(
+        'div',
+        { class: `auth-card gate ${opts.status}` },
+        brand(),
+        h('div', { class: 'gate-icon', 'aria-hidden': 'true' }, opts.status === 'pending' ? icon('clock') : icon('warning')),
+        h('h2', null, content.title),
+        h('p', { class: 'muted' }, content.text),
+        h(
+          'div',
+          { class: 'gate-actions' },
+          opts.status !== 'rejected' && h('button', { type: 'button', class: 'btn primary', onclick: opts.onRetry }, opts.status === 'pending' ? 'Controlla di nuovo' : 'Riprova'),
+          h('button', { type: 'button', class: 'btn', onclick: opts.onSignOut }, 'Esci'),
+        ),
+      ),
+    ),
+  );
 }

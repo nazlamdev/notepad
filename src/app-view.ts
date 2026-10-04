@@ -1,3 +1,5 @@
+import type { AdminApi } from './access';
+import { createAdminPanel, type AdminPanel } from './admin-view';
 import { escapeHtml, h, icon, iconButton, isMac, kbd } from './dom';
 import * as ed from './editor-commands';
 import { firstLine, groupLabel, listDate, longDate } from './format';
@@ -10,6 +12,8 @@ export interface AppContext {
   userId: string;
   email: string;
   signOut: () => Promise<void>;
+  /** Present only for the administrator: enables the Root tab. */
+  admin?: AdminApi;
 }
 
 interface Command {
@@ -46,6 +50,8 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
 
   let query = '';
   let showCompare = false;
+  let rootOpen = false;
+  let adminPanel: AdminPanel | null = null;
 
   // ------------------------------------------------------------------ skeleton
 
@@ -70,6 +76,7 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
       { class: 'sidebar-footer' },
       connDot,
       h('span', { class: 'user-email', title: ctx.email }, ctx.email),
+      ctx.admin ? iconButton('shield', 'Root: richieste di accesso', () => openRoot(), 'root-btn') : null,
       iconButton('logout', 'Esci', () => void logout()),
     ),
   );
@@ -122,7 +129,8 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
     h('p', { class: 'muted small' }, `${kbd('mod+p')} apri nota · ${kbd('mod+shift+p')} comandi`),
   );
 
-  const main = h('main', { class: 'main' }, toolbar, conflictEl, findBar, editorScroll, emptyEl);
+  const adminHost = h('div', { class: 'admin-host', hidden: true });
+  const main = h('main', { class: 'main' }, toolbar, conflictEl, findBar, editorScroll, emptyEl, adminHost);
   const app = h('div', { class: 'app' }, sidebar, main);
 
   const pInput = h('input', { class: 'palette-input', 'aria-label': 'Cerca', autocomplete: 'off', spellcheck: false });
@@ -199,9 +207,9 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
           'button',
           {
             type: 'button',
-            class: `note-item${n.id === prefs.active ? ' active' : ''}`,
+            class: `note-item${n.id === prefs.active && !rootOpen ? ' active' : ''}`,
             'data-id': n.id,
-            'aria-current': n.id === prefs.active ? 'true' : null,
+            'aria-current': n.id === prefs.active && !rootOpen ? 'true' : null,
             onclick: () => openNote(n.id),
             ondblclick: () => focusTitle(),
           },
@@ -250,10 +258,20 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
 
   function renderTabs() {
     prefs.tabs = prefs.tabs.filter((id) => store.get(id));
+    const rootTab = ctx.admin
+      ? h(
+          'div',
+          { class: `tab root-tab${rootOpen ? ' active' : ''}`, role: 'tab', 'aria-selected': String(rootOpen), title: 'Root: richieste di accesso', onclick: () => openRoot() },
+          icon('shield'),
+          h('span', { class: 'tab-title' }, 'Root'),
+          adminPanel?.pending ? h('span', { class: 'tab-badge', 'aria-label': `${adminPanel.pending} richieste in attesa` }, String(adminPanel.pending)) : null,
+        )
+      : null;
     tabsEl.replaceChildren(
+      ...(rootTab ? [rootTab] : []),
       ...prefs.tabs.map((id) => {
         const n = store.get(id)!;
-        const active = id === prefs.active;
+        const active = id === prefs.active && !rootOpen;
         const state = store.state(n);
         return h(
           'div',
@@ -288,7 +306,24 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
   // ------------------------------------------------------------------- editor
 
   function activeNote(): Note | undefined {
-    return store.get(prefs.active);
+    return rootOpen ? undefined : store.get(prefs.active);
+  }
+
+  function openRoot() {
+    if (!ctx.admin) return;
+    if (!adminPanel) return;
+    rootOpen = true;
+    closeFind(false);
+    if (!adminHost.firstChild) adminHost.append(adminPanel.el);
+    app.classList.add('mobile-editor');
+    loadEditor();
+    void adminPanel.refresh();
+  }
+
+  function closeRoot() {
+    if (!rootOpen) return;
+    rootOpen = false;
+    loadEditor();
   }
 
   function autosize() {
@@ -303,7 +338,8 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
     const n = activeNote();
     app.classList.toggle('has-note', !!n);
     editorScroll.hidden = !n;
-    emptyEl.hidden = !!n;
+    emptyEl.hidden = !!n || rootOpen;
+    adminHost.hidden = !rootOpen;
     deleteBtn.disabled = checklistBtn.disabled = !n;
     showCompare = false;
     if (n) {
@@ -323,8 +359,9 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
       const at = prefs.active ? prefs.tabs.indexOf(prefs.active) + 1 : prefs.tabs.length;
       prefs.tabs.splice(at || prefs.tabs.length, 0, id);
     }
-    if (prefs.active !== id) {
+    if (prefs.active !== id || rootOpen) {
       prefs.active = id;
+      rootOpen = false;
       loadEditor();
     }
     persist();
@@ -703,7 +740,8 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
     { id: 'save', label: 'Salva ora', keys: 'mod+s', run: () => void saveNow() },
     { id: 'rename', label: 'Rinomina nota', keys: 'F2', run: focusTitle, when: () => !!activeNote() },
     { id: 'delete', label: 'Elimina nota', keys: 'mod+shift+backspace', run: () => void deleteNote(prefs.active), when: () => !!activeNote() },
-    { id: 'close', label: 'Chiudi scheda', keys: 'mod+alt+w', run: () => closeTab(prefs.active), when: () => !!activeNote() },
+    { id: 'close', label: 'Chiudi scheda', keys: 'mod+alt+w', run: () => (rootOpen ? closeRoot() : closeTab(prefs.active)), when: () => rootOpen || !!activeNote() },
+    { id: 'root', label: 'Root: richieste di accesso', run: () => openRoot(), when: () => !!ctx.admin },
     { id: 'next', label: 'Scheda successiva', keys: 'ctrl+alt+right', run: () => cycleTab(1) },
     { id: 'prev', label: 'Scheda precedente', keys: 'ctrl+alt+left', run: () => cycleTab(-1) },
     { id: 'find', label: 'Trova nella nota', keys: 'mod+f', run: openFind, when: () => !!activeNote() },
@@ -891,7 +929,7 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
 
       if (mod && !e.altKey && code === 'KeyS') return take(() => void saveNow());
       if (mod && e.altKey && code === 'KeyN') return take(() => void newNote());
-      if (mod && e.altKey && code === 'KeyW') return take(() => closeTab(prefs.active));
+      if (mod && e.altKey && code === 'KeyW') return take(() => (rootOpen ? closeRoot() : closeTab(prefs.active)));
       if (e.ctrlKey && e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) return take(() => cycleTab(e.key === 'ArrowRight' ? 1 : -1));
       const tabCombo = isMac ? e.metaKey && e.altKey : e.altKey && !e.ctrlKey;
       if (tabCombo && /^Digit[1-9]$/.test(code)) {
@@ -961,6 +999,13 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
 
   app.classList.toggle('sidebar-hidden', !prefs.sidebar);
   app.classList.toggle('mono', prefs.mono);
+  if (ctx.admin) {
+    adminPanel = createAdminPanel(ctx.admin, {
+      toast,
+      confirm: confirmDialog,
+      onPendingChange: () => schedule('tabs'),
+    });
+  }
   editorScroll.hidden = true;
   listEl.replaceChildren(h('div', { class: 'list-empty' }, h('div', { class: 'spinner' }), h('p', null, 'Caricamento note…')));
   renderConnection();
@@ -988,6 +1033,7 @@ export function mountApp(root: HTMLElement, ctx: AppContext): () => void {
 
   return () => {
     cleanups.forEach((fn) => fn());
+    adminPanel?.dispose();
     store.dispose();
     cancelAnimationFrame(frame);
     clearTimeout(toastTimer);

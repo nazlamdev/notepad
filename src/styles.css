@@ -385,3 +385,55 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; }
 @media (max-width: 760px) and (hover: none) {
   .note-text { font-size: 17px; }
 }
+
+/* ------------------------------------------------------- access & root */
+.auth-hint { margin: -4px 0 14px; line-height: 1.45; }
+.gate { text-align: center; }
+.gate-icon { width: 44px; height: 44px; margin: 22px auto 0; color: var(--accent-strong); }
+.gate-icon .icon { width: 100%; height: 100%; }
+.gate.rejected .gate-icon, .gate.error .gate-icon { color: var(--danger); }
+.gate h2 { margin-top: 12px; }
+.gate p { line-height: 1.5; }
+.gate-actions { display: flex; justify-content: center; gap: 8px; margin-top: 18px; }
+
+.root-tab { flex: 0 0 auto; min-width: 0; padding-right: 10px; gap: 6px; }
+.root-tab .icon { width: 16px; height: 16px; color: var(--accent-strong); }
+.tab-badge {
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff;
+  font-size: 11px; font-weight: 700; display: grid; place-items: center;
+}
+.root-btn { color: var(--accent-strong); }
+
+.admin-host { flex: 1; overflow-y: auto; }
+.admin-inner { max-width: 720px; margin: 0 auto; padding: 28px 32px 60px; }
+.admin-head { display: flex; gap: 14px; align-items: flex-start; }
+.admin-head h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+.admin-head p { margin: 4px 0 0; line-height: 1.45; }
+.admin-badge {
+  width: 44px; height: 44px; border-radius: 12px; flex: none; display: grid; place-items: center;
+  background: var(--select); color: var(--select-text);
+}
+.admin-badge .icon { width: 24px; height: 24px; }
+.admin-seg { margin: 22px 0 14px; max-width: 420px; }
+.seg-count { margin-left: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: var(--field); }
+.seg-count.hot { background: var(--danger); color: #fff; }
+.admin-list { display: grid; gap: 8px; }
+.admin-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--card); border: 1px solid var(--sep);
+}
+.admin-card.pending { border-color: var(--warn-border); background: var(--warn-bg); }
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: var(--field); font-weight: 700; color: var(--muted);
+}
+.admin-card-main { flex: 1; min-width: 0; }
+.admin-email { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-actions { display: flex; gap: 6px; flex: none; }
+.btn.danger-outline { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: transparent; }
+
+@media (max-width: 760px) {
+  .admin-inner { padding: 18px 16px 40px; }
+  .admin-card { flex-wrap: wrap; }
+  .admin-actions { width: 100%; justify-content: flex-end; }
+}
