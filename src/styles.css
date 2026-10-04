@@ -414,7 +414,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; }
   background: var(--select); color: var(--select-text);
 }
 .admin-badge .icon { width: 24px; height: 24px; }
-.admin-seg { margin: 22px 0 14px; max-width: 420px; }
+.admin-seg { margin: 22px auto 14px; max-width: 420px; }
 .seg-count { margin-left: 6px; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: var(--field); }
 .seg-count.hot { background: var(--danger); color: #fff; }
 .admin-list { display: grid; gap: 8px; }
