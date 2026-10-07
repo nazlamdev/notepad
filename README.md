@@ -132,6 +132,16 @@ Come funziona:
 - L'admin vede il tab **Root** (con il numero di richieste in attesa) nella barra delle schede, l'icona a scudo in basso nell'elenco note e il comando "Root" nella palette. Da lì può **Approvare**, **Rifiutare** o **Revocare** l'accesso. Revocare non cancella le note: tornano visibili se l'utente viene riapprovato.
 - Le decisioni passano dalla funzione `set_access_status()`, che verifica lato database che chi la chiama sia admin; il client non può modificare la tabella `access_requests` direttamente.
 
+### Link di accesso dal pannello Root
+
+Sugli utenti approvati il pannello Root offre **Link accesso** (entra senza password) e **Link password** (sceglie una nuova password). Il link monouso viene copiato negli appunti e lo invii tu (WhatsApp, chat…), senza passare dall'email di Supabase. Le password esistenti non sono visualizzabili: Supabase conserva solo un hash.
+
+I link sono generati dalla Edge Function `supabase/functions/admin-access-link`, che verifica che chi chiama sia admin e usa la service role key solo lato server. Per pubblicarla:
+
+```bash
+supabase functions deploy admin-access-link --no-verify-jwt
+```
+
 Per aggiungere un altro amministratore (SQL Editor):
 
 ```sql

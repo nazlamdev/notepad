@@ -1,4 +1,4 @@
-import type { AccessRequest, AccessStatus, AdminApi } from './access';
+import type { AccessLinkType, AccessRequest, AccessStatus, AdminApi } from './access';
 import { h, icon } from './dom';
 import { longDate } from './format';
 
@@ -117,11 +117,40 @@ export function createAdminPanel(api: AdminApi, helpers: Helpers): AdminPanel {
         label,
       );
 
+    const linkBtn = (label: string, type: AccessLinkType, title: string) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'btn',
+          title,
+          disabled: isBusy,
+          onclick: async () => {
+            busy.add(r.user_id);
+            render();
+            try {
+              const link = await api.accessLink(r.user_id, type);
+              await copyLink(link, r.email);
+            } catch (e) {
+              helpers.toast(e instanceof Error ? e.message : String(e), 'error');
+            } finally {
+              busy.delete(r.user_id);
+              render();
+            }
+          },
+        },
+        label,
+      );
+
     const actions =
       r.status === 'pending'
         ? [act('Rifiuta', 'rejected', ''), act('Approva', 'approved', 'primary')]
         : r.status === 'approved'
-          ? [act('Revoca accesso', 'rejected', 'danger-outline', `${r.email} non potrà più vedere né modificare le sue note finché non lo approvi di nuovo. Le note non vengono cancellate.`)]
+          ? [
+              linkBtn('Link accesso', 'magiclink', 'Copia un link monouso che fa entrare l’utente senza password'),
+              linkBtn('Link password', 'recovery', 'Copia un link monouso con cui l’utente sceglie una nuova password'),
+              act('Revoca accesso', 'rejected', 'danger-outline', `${r.email} non potrà più vedere né modificare le sue note finché non lo approvi di nuovo. Le note non vengono cancellate.`),
+            ]
           : [act('Approva', 'approved', 'primary')];
 
     const when =
@@ -134,6 +163,16 @@ export function createAdminPanel(api: AdminApi, helpers: Helpers): AdminPanel {
       h('div', { class: 'admin-card-main' }, h('div', { class: 'admin-email' }, r.email || '(senza email)'), h('div', { class: 'muted small' }, when)),
       h('div', { class: 'admin-actions' }, ...actions),
     );
+  }
+
+  async function copyLink(link: string, email: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      helpers.toast(`Link per ${email} copiato: è monouso e scade dopo poco, invialo subito.`);
+    } catch {
+      // Clipboard can be refused after an async call (Safari): let the admin copy it by hand.
+      window.prompt(`Link per ${email} (monouso, scade dopo poco):`, link);
+    }
   }
 
   async function refresh() {

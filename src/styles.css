@@ -429,7 +429,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; }
 }
 .admin-card-main { flex: 1; min-width: 0; }
 .admin-email { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin-actions { display: flex; gap: 6px; flex: none; }
+.admin-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; flex: none; }
 .btn.danger-outline { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: transparent; }
 
 @media (max-width: 760px) {
